@@ -10,25 +10,32 @@
 	{
 
 		//CONSTANTS
-		const KEY_LEFT:uint   = 37;
-		const KEY_UP:uint     = 38;
-		const KEY_RIGHT:uint  = 39;
-		const KEY_DOWN:uint   = 40;
-		const KEY_A:uint      = 65;
-		const KEY_W:uint      = 87;
-		const KEY_D:uint      = 68;
-		const KEY_S:uint      = 83;
+		private const KEY_LEFT:uint   = 37;
+		private const KEY_UP:uint     = 38;
+		private const KEY_RIGHT:uint  = 39;
+		private const KEY_DOWN:uint   = 40;
+		private const KEY_A:uint      = 65;
+		private const KEY_W:uint      = 87;
+		private const KEY_D:uint      = 68;
+		private const KEY_S:uint      = 83;
+		
+		//EVENTS
+		public const PLATFORM_JUMP:String = "platformJump";
+		public const PLATFORM_LAND:String = "platformLand";
+		public const PLATFORM_RUN:String = "platformRun";
+		public const PLATFORM_STATIC:String = "platformStatic";
+		
 		
 		//VARS
 		
 		public var maxSpeed:Number = 18;
 		public var minSpeed:Number = 0.1;
-		public var moveSpeed:Number = 0.6;
-		public var jumpPower:Number = 12;
+		public var moveSpeed:Number = 1.1;
+		public var jumpPower:Number = 10;
 		public var player:MovieClip;
 		public var collisionVector:Vector.<MovieClip> = new Vector.<MovieClip>();
 		
-		private var _gravity:Number = 0.6;
+		private var _gravity:Number = 1;
 		private var _maxVelY:Number = 15;
 		private var _friction:Number = 0.86;
 		private var _playerVelocityX:Number = 0;
@@ -43,7 +50,8 @@
 		private var RIGHT:Boolean = false;
 		
 		private var JUMPING:Boolean = false;
-		private var canJump:Boolean = true;
+		private var hasLanded:Boolean = false;
+		private var canJump:int = 2;
 		
 		
 		//FUNCTIONS
@@ -62,7 +70,6 @@
 		
 		private function initVars(event:Event):void
 		{
-			
 								 
 			//LISTENERS
 			
@@ -73,6 +80,8 @@
 		
 		private function loop(event:Event):void
 		{
+			
+			
 			//Apply gravity
 			_playerVelocityY += _gravity;
 			
@@ -100,13 +109,13 @@
 					   mc.hitTestPoint(player.x - (player.width / 2) + 5, player.y + (player.height / 2)))
 					{
 						JUMPING = false;
-						canJump = true;
+						canJump = 2;
 						_playerVelocityY = 0;
 						player.y = mc.y - ((mc.height / 2) + (player.height / 2));
 						
-					}else if(mc.hitTestPoint(player.x, player.y - (player.height / 2)) || 
-					   mc.hitTestPoint(player.x + (player.width / 2) - 5, player.y - (player.height / 2)) || 
-					   mc.hitTestPoint(player.x - (player.width / 2) + 5, player.y - (player.height / 2)))
+					}else if(mc.hitTestPoint(player.box.x, player.y - (player.box.height / 2)) || 
+					   mc.hitTestPoint(player.box.x + (player.box.width / 2) - 5, player.box.y - (player.box.height / 2)) || 
+					   mc.hitTestPoint(player.box.x - (player.box.width / 2) + 5, player.box.y - (player.box.height / 2)))
 					{
 						_playerVelocityY = 1;
 						player.y = mc.y + ((mc.height / 2) + (player.height / 2));
@@ -114,10 +123,10 @@
 					}
 				
 					//check left/right
-					if(mc.hitTestPoint(player.x - (player.width / 2), player.y))
+					if(mc.hitTestPoint(player.box.x - (player.box.width / 2), player.box.y))
 					{
 						_playerVelocityX = -(_playerVelocityX );
-					}else if(mc.hitTestPoint(player.x + (player.width / 2), player.y))
+					}else if(mc.hitTestPoint(player.box.x + (player.box.width / 2), player.box.y))
 					{
 						_playerVelocityX = -(_playerVelocityX );
 					}
@@ -136,11 +145,12 @@
 			//Check for jumping
 			if(UP == true)
 			{
-				if(canJump)
+				if(canJump > 0)
 				{
-					canJump = false;
+					canJump--;
 					JUMPING = true;
-					_playerVelocityY -= jumpPower;
+					_playerVelocityY = -jumpPower;
+					UP = false;
 				}
 			}
 			
@@ -156,17 +166,38 @@
 			}
 						
 			
-			
+			//stop moving if velocity is low enough
 			if(Math.abs(_playerVelocityX) < 0.01)
 			{
 				_playerVelocityX = 0;
 			}
 			
 			
+			
 			//Pass velocity to player
 			player.x += _playerVelocityX;
 			player.y += _playerVelocityY;
 			
+			
+			//ANIMATE
+			if((RIGHT == true || LEFT == true) && JUMPING == false)
+			{
+				if(!(RIGHT == true && LEFT == true))
+				{
+					trace("RUN");
+					dispatchEvent(new Event(PLATFORM_RUN));
+				}
+			}else if(JUMPING == false && hasLanded == false)
+			{
+				dispatchEvent(new Event(PLATFORM_LAND));
+			}
+			
+			if(UP == true && JUMPING == true)
+			{
+				dispatchEvent(new Event(PLATFORM_JUMP));
+			}
+			
+			hasLanded = !JUMPING;
 		}
 			
 			
@@ -187,22 +218,39 @@
 			if(key == KEY_LEFT || key == KEY_A)
 			{
 				LEFT = flagger;
+				if(flagger == true)
+				{
+					player.scaleX = -0.6;
+				}else if(flagger == false && RIGHT == false){
+					dispatchEvent(new Event(PLATFORM_STATIC));
+				}
 			}
 			
 			if(key == KEY_RIGHT || key == KEY_D)
 			{
 				RIGHT = flagger;
+				if(flagger == true)
+				{
+					player.scaleX = 0.6;
+				}else if(flagger == false && LEFT == false){
+					dispatchEvent(new Event(PLATFORM_STATIC));
+				}
 			}
 			
 			if(key == KEY_UP || key == KEY_W)
 			{
 				UP = flagger;
+				if(UP == true)
+				{
+					dispatchEvent(new Event(PLATFORM_JUMP));
+				}
 			}
 			
 			if(key == KEY_DOWN || key == KEY_S)
 			{
 				DOWN = flagger;
 			}
+			
 		}
 		
 						
